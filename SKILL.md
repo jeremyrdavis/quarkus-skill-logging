@@ -13,6 +13,18 @@ description: >
 Conventions for emitting log statements in Quarkus code. The single most important rule: **never concatenate
 strings inside a log call**. Use the parameterized `*f` variants instead.
 
+**Foundational principle.** Logging is an irreversible side effect. Treat it like persistence, not console output. The line you write replicates within seconds — to aggregators, backups, support tools, incident exports, screenshots, ticket attachments, AI summarizers — and rolling back the code does not retract what shipped. Compliance controls (encryption at rest, retention windows) protect data *in the aggregator*; they do not protect data in the export pipeline.
+
+**Red Flags — STOP if you find yourself thinking:**
+
+- "We have N-day retention, so this PII isn't really permanent."
+- "Logs are encrypted at rest in our aggregator, so this payload is fine."
+- "It's only at debug level — production won't have it on."
+- "Just for one debugging session / one customer / one weekend."
+- "I'll concatenate strings inside a Log call this one time."
+
+If any of these surface, re-read Core Rules and Excuse / Reality before typing.
+
 ---
 
 ## When to Use
@@ -117,6 +129,9 @@ When you catch yourself reasoning around the rules above, look here before you t
 | "It's only `debug` level — it won't be on in production." | Debug is enabled in production during incidents. The line you write is the line on-call sees at 3 AM. Treat every level the same way for PII. |
 | "I'll concatenate this once because it's a one-off." | The lazy-evaluation rule isn't about code beauty; it's about not doing string work when the level is disabled. Once-off concatenations end up in hot loops six months later. |
 | "Logging the whole entity gives the next debugger more context." | `toString()` on a JPA entity drags in the entire object graph, including lazy-loaded fields that may throw mid-serialization. The next debugger gets a stack trace instead of context. |
+| "Encryption at rest + 7-day retention + debug auto-rotates means it's compliant — the compliance lead even blessed it." | Logs travel further than the writer can predict — support tools, incident exports, screenshots, ticket attachments, AI summarizers. SOC 2 blessing of a *control* is not blessing of *this specific payload*. The control protects data in the aggregator; it does not protect data in the export pipeline or the developer's terminal scrollback. |
+| "A 24-hour 'temporary' debug change to log payload data is fine." | A 24-hour temporary change is exactly how PII ends up permanent. The line replicates within seconds; rolling back the *code* removes future lines, not the ones already shipped. Treat every level the same way for PII. |
+| "A `pii.` field-prefix convention is engineered and grown-up — the downstream pipeline strips those before storage." | An assumption about a downstream pipeline isn't a control. Either the pipeline exists and is verified end-to-end (then it's a control and you can name the test), or it doesn't (then it's a story you're telling yourself). Don't ship PII into the log and trust a pipeline you didn't audit. |
 
 ---
 
